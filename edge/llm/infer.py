@@ -12,7 +12,8 @@ def _load_tflite_interpreter(model_path: str):
     try:
         from tflite_runtime.interpreter import Interpreter
     except ImportError:
-        from tensorflow.lite import Interpreter
+        import tensorflow as tf
+        Interpreter = tf.lite.Interpreter
     interpreter = Interpreter(model_path=model_path)
     interpreter.allocate_tensors()
     return interpreter

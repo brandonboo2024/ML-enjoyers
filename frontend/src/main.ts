@@ -19,7 +19,7 @@ const statusEl = document.querySelector<HTMLSpanElement>("#status");
 const filterButtons = document.querySelectorAll<HTMLButtonElement>(".filter-button");
 const summaryEl = document.querySelector<HTMLDivElement>("#summary");
 
-const apiBase = "http://localhost:4000";
+const apiBase = "http://localhost:4100";
 let currentFilter: "all" | "unacknowledged" = "all";
 
 function setStatus(message: string) {

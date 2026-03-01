@@ -17,9 +17,9 @@ Edge-first fall detection prototype with:
 - `fall_detection_plan.md` — feasibility plan
 
 ## Run Prototype
-- Backend: `cd backend && npm install && npm run dev` (http://localhost:4000)
+- Backend: `cd backend && npm install && npm run dev` (http://localhost:4100)
 - Frontend: `cd frontend && npm install && npm run dev` (http://localhost:5173)
-- Edge simulator: `python3 edge/edge_device.py --once` (or `--interval 20`)
+- Edge detector: `python3 edge/edge_device.py --model edge/llm_artifacts/model.tflite`
 
 ## License
 See `LICENSE`.

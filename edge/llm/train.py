@@ -5,13 +5,13 @@ import numpy as np
 import tensorflow as tf
 
 from .config import LLMConfig
-from .data import scan_dataset, split_dataset, build_dataset
+from .data import resolve_data_dir, scan_dataset, split_dataset, build_dataset
 from .model import build_model
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Train fall audio classifier.")
-    parser.add_argument("--data-dir", required=True, help="Path to dataset root.")
+    parser.add_argument("--data-dir", required=True, help="Path to dataset root directory or .zip archive.")
     parser.add_argument("--out-dir", default="edge/llm_artifacts", help="Output directory.")
     args = parser.parse_args()
 
@@ -19,7 +19,8 @@ def main() -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    items = scan_dataset(args.data_dir)
+    data_dir = resolve_data_dir(args.data_dir)
+    items = scan_dataset(data_dir)
     train_items, val_items, test_items = split_dataset(items, cfg)
 
     x_train, y_train = build_dataset(train_items, cfg, augment=True)

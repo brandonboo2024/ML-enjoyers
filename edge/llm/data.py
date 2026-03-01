@@ -1,5 +1,6 @@
 import os
 import random
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Tuple
@@ -19,12 +20,50 @@ class LabeledFile:
     label: int
 
 
+def _contains_audio_files(path: Path) -> bool:
+    if not path.exists() or not path.is_dir():
+        return False
+    for root, _, files in os.walk(path):
+        for fname in files:
+            if Path(fname).suffix.lower() in AUDIO_EXTS:
+                return True
+    return False
+
+
+def resolve_data_dir(data_path: str) -> str:
+    path = Path(data_path)
+    if path.is_dir():
+        return str(path)
+
+    if path.is_file() and path.suffix.lower() == ".zip":
+        extract_root = Path("edge/data/extracted")
+        extract_dir = extract_root / path.stem
+        if not _contains_audio_files(extract_dir):
+            extract_dir.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(path, "r") as archive:
+                archive.extractall(extract_dir)
+        return str(extract_dir)
+
+    raise ValueError(f"Unsupported dataset path: {data_path}. Provide a directory or .zip file.")
+
+
 def _infer_label(path: Path) -> int | None:
     name = str(path).lower()
     if "nonfall" in name or "no_fall" in name or "non-fall" in name:
         return 0
     if "fall" in name:
         return 1
+
+    # SAFE naming convention: AA-BBB-CC-DDD-FF.wav where FF is class
+    # 01 => fall, 02 => non-fall
+    stem_parts = path.stem.split("-")
+    if stem_parts:
+        class_token = stem_parts[-1]
+        if class_token == "01":
+            return 1
+        if class_token == "02":
+            return 0
+
     return None
 
 
