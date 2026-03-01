@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fall Detection Dashboard</title>
+  </head>
+  <body>
+    <main id="app">
+      <header>
+        <h1>Fall Detection Dashboard</h1>
+        <p>Edge alerts, acknowledgement, and escalation tracking.</p>
+      </header>
+      <section>
+        <div class="controls">
+          <div class="control-group">
+            <button id="refresh">Refresh Alerts</button>
+            <span id="status" class="status-text"></span>
+          </div>
+          <div class="filters" role="group" aria-label="Alert filters">
+            <button class="filter-button is-active" data-filter="all">All</button>
+            <button class="filter-button" data-filter="unacknowledged">Unacknowledged</button>
+          </div>
+          <div id="summary" class="summary"></div>
+        </div>
+        <div id="alerts"></div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

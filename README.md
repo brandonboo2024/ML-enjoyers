@@ -3,16 +3,23 @@
 LLM-based project that helps detect sound changes.
 
 ## Overview
-This repository hosts an LLM-focused system for identifying and analyzing sound changes in audio data. The goal is to provide a simple, reliable base that can be extended with data pipelines, training code, evaluation, and deployment.
+Edge-first fall detection prototype with:
+- Python edge (simulated now)
+- Node backend API
+- TypeScript/Vite frontend dashboard
 
-## Status
-This is an initial project template with a minimal README.
+## Start Here
+- `WORKFLOW.md` — how to run the multi-agent process
+- `SPEC.md` — API & ownership contract
+- `TASKS.md` — assignments by role
+- `CHANGELOG.md` — agent updates (use template in WORKFLOW)
+- `PROTOTYPE.md` — how the demo pieces fit together
+- `fall_detection_plan.md` — feasibility plan
 
-## Roadmap (planned)
-- Define data sources and labeling strategy
-- Establish model training and evaluation pipeline
-- Build inference interface (CLI/API)
-- Add reproducible experiments and benchmarks
+## Run Prototype
+- Backend: `cd backend && npm install && npm run dev` (http://localhost:4000)
+- Frontend: `cd frontend && npm install && npm run dev` (http://localhost:5173)
+- Edge simulator: `python3 edge/edge_device.py --once` (or `--interval 20`)
 
 ## License
 See `LICENSE`.
