@@ -207,3 +207,11 @@ marimo/_lsp/
 __marimo__/
 
 **/node_modules
+
+# Project local large data/artifacts
+archive.zip
+edge/data/
+edge/llm_artifacts/
+
+# macOS
+.DS_Store
