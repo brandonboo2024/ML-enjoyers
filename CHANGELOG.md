@@ -83,3 +83,19 @@ Use this file for agent handoffs and status updates.
 - Why: Prepared repository for upload by ignoring large local dataset/artifact folders and updating run instructions to match current integrated defaults.
 - Run/Test: `git status --short` (confirmed large data/artifact paths not listed).
 - Open: If `archive.zip` or `edge/data` were ever committed previously, run untrack commands before pushing.
+- Changes: edge/shell.nix
+- Why: Fix shellHook TensorFlow version echo to avoid heredoc parsing error.
+- Run/Test: Not run (config only).
+- Open: None.
+
+[2026-03-01] [edge]
+- Changes: edge/shell.nix, edge/llm/data.py, edge/LLM_README.md, edge/data/*
+- Why: Fix Nix shellHook output; infer labels from Kaggle filename pattern; document label mapping; unpack local archive.zip dataset.
+- Run/Test: Not run (prepping dataset + config updates).
+- Open: None.
+
+[2026-03-01] [edge]
+- Changes: edge/shell.nix
+- Why: Add keras to Nix Python env for TensorFlow/Keras import.
+- Run/Test: Not run (config only).
+- Open: None.

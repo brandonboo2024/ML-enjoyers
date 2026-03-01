@@ -7,13 +7,14 @@ let
     librosa
     soundfile
     tensorflow
+    keras
     kaggle
   ]);
 
 in pkgs.mkShell {
   buildInputs = [ python pkgs.ffmpeg ];
   shellHook = ''
-    echo "Python: $(python --version)"
-    echo "TensorFlow: $(python - <<'PY'\nimport tensorflow as tf\nprint(tf.__version__)\nPY)"
+    python --version
+    python -c 'import tensorflow as tf; print("TensorFlow:", tf.__version__)'
   '';
 }

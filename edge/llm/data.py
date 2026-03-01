@@ -48,7 +48,15 @@ def resolve_data_dir(data_path: str) -> str:
 
 
 def _infer_label(path: Path) -> int | None:
-    name = str(path).lower()
+    name = path.stem.lower()
+    # Kaggle fall audio dataset naming: AA-BBB-CC-DDD-EE
+    # CC == "00" appears to indicate non-fall, others are fall types.
+    parts = name.split("-")
+    if len(parts) == 5 and all(part.isdigit() for part in parts):
+        if parts[2] == "00":
+            return 0
+        return 1
+
     if "nonfall" in name or "no_fall" in name or "non-fall" in name:
         return 0
     if "fall" in name:

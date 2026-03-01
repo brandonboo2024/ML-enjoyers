@@ -20,8 +20,11 @@ Download the Kaggle dataset (requires Kaggle CLI + credentials):
 python -m edge.llm.download_dataset
 ```
 
-If you already have the dataset locally, pass its path directly to training.
 If you have a zip archive (for example `archive.zip` at repo root), training now accepts it directly and auto-extracts to `edge/data/extracted/`.
+=======
+For the Kaggle archive, labels are inferred from filenames of the form `AA-BBB-CC-DDD-EE.wav`:
+- `CC == 00` is treated as non-fall
+- `CC != 00` is treated as fall
 
 ## Train
 
