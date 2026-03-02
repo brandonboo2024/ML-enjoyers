@@ -37,6 +37,14 @@ python -m edge.llm.train --data-dir archive.zip
 
 Artifacts are saved to `edge/llm_artifacts/`.
 
+### Model variants (lightweight)
+
+```bash
+python -m edge.llm.train --data-dir archive.zip --model-type cnn_small
+python -m edge.llm.train --data-dir archive.zip --model-type cnn_tiny
+python -m edge.llm.train --data-dir archive.zip --model-type linear
+```
+
 ## Export TFLite
 
 ```bash
