@@ -13,6 +13,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Train fall audio classifier.")
     parser.add_argument("--data-dir", required=True, help="Path to dataset root directory or .zip archive.")
     parser.add_argument("--out-dir", default="edge/llm_artifacts", help="Output directory.")
+    parser.add_argument("--model-type", default="cnn_small", choices=["cnn_small", "cnn_tiny", "linear"])
     args = parser.parse_args()
 
     cfg = LLMConfig(model_dir=args.out_dir)
@@ -27,7 +28,7 @@ def main() -> int:
     x_val, y_val = build_dataset(val_items, cfg, augment=False)
     x_test, y_test = build_dataset(test_items, cfg, augment=False)
 
-    model = build_model(input_shape=x_train.shape[1:])
+    model = build_model(input_shape=x_train.shape[1:], model_type=args.model_type)
 
     callbacks = [
         tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=5, restore_best_weights=True),

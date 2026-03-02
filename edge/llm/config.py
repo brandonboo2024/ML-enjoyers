@@ -5,7 +5,7 @@ from dataclasses import dataclass
 class LLMConfig:
     # Audio + feature params
     sample_rate: int = 8000
-    clip_seconds: float = 2.0
+    clip_seconds: float = 3.0
     n_fft: int = 200  # 25ms @ 8kHz
     hop_length: int = 80  # 10ms @ 8kHz
     n_mels: int = 64
