@@ -1,19 +1,20 @@
 { pkgs ? import <nixpkgs> {} }:
 
 let
-  python = pkgs.python311.withPackages (ps: with ps; [
-    numpy
-    scipy
-    librosa
-    soundfile
-    tensorflow
-    kaggle
+  python = pkgs.python3;
+  libPath = pkgs.lib.makeLibraryPath (with pkgs; [
+    stdenv.cc.cc
+    zlib
+    portaudio
   ]);
+in
+pkgs.mkShell {
+  packages = [
+    python
+    pkgs.portaudio
+  ];
 
-in pkgs.mkShell {
-  buildInputs = [ python pkgs.ffmpeg ];
   shellHook = ''
-    echo "Python: $(python --version)"
-    echo "TensorFlow: $(python - <<'PY'\nimport tensorflow as tf\nprint(tf.__version__)\nPY)"
+    export LD_LIBRARY_PATH="${libPath}:$LD_LIBRARY_PATH"
   '';
 }

@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 
 from .config import LLMConfig
-from .features import load_audio, extract_log_mel, normalize_log_mel
+from .features import load_audio, extract_log_mel, normalize_log_mel, rms_normalize, rms_level
 
 
 def _load_tflite_interpreter(model_path: str):
@@ -50,6 +50,11 @@ def main() -> int:
 
     cfg = LLMConfig()
     y = load_audio(args.audio, cfg)
+    if cfg.silence_gate and rms_level(y) < cfg.silence_rms_threshold:
+        print("score=0.0000 label=non-fall (silence gate)")
+        return 0
+    if cfg.rms_normalize:
+        y = rms_normalize(y, cfg)
     log_mel = extract_log_mel(y, cfg)
     log_mel = normalize_log_mel(log_mel)
     x = log_mel[np.newaxis, ..., np.newaxis]

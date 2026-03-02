@@ -11,6 +11,11 @@ class LLMConfig:
     n_mels: int = 64
     fmin: int = 0
     fmax: int = 8000
+    center_on_peak: bool = True
+    rms_normalize: bool = False
+    rms_target: float = 0.1
+    silence_gate: bool = True
+    silence_rms_threshold: float = 0.05
 
     # Training params
     batch_size: int = 32

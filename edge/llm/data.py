@@ -8,7 +8,16 @@ from typing import List, Tuple
 import numpy as np
 
 from .config import LLMConfig
-from .features import load_audio, extract_log_mel, normalize_log_mel, apply_gain, add_noise
+from .features import (
+    load_audio,
+    load_audio_full,
+    center_window,
+    rms_normalize,
+    extract_log_mel,
+    normalize_log_mel,
+    apply_gain,
+    add_noise,
+)
 
 
 AUDIO_EXTS = {".wav", ".flac", ".mp3", ".ogg"}
@@ -97,7 +106,13 @@ def split_dataset(items: List[LabeledFile], cfg: LLMConfig) -> Tuple[List[Labele
 
 
 def _featurize_item(item: LabeledFile, cfg: LLMConfig, rng: np.random.Generator | None, augment: bool) -> Tuple[np.ndarray, int]:
-    y = load_audio(item.path, cfg)
+    if cfg.center_on_peak:
+        y_full = load_audio_full(item.path, cfg)
+        y = center_window(y_full, cfg)
+    else:
+        y = load_audio(item.path, cfg)
+    if cfg.rms_normalize:
+        y = rms_normalize(y, cfg)
     if augment and rng is not None:
         y = apply_gain(y, cfg, rng)
         if rng.random() < cfg.add_noise_prob:
