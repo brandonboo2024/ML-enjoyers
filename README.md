@@ -1,12 +1,17 @@
 # ML-enjoyers
 
-Edge-first audio fall detection prototype.
+Edge-first public safety prototype with audio fall detection as the first event class.
 
 ## Overview
 Edge-first fall detection prototype with:
 - Python edge (mic inference + offline queue)
 - Node backend API
 - TypeScript/Vite frontend dashboard
+
+## Hackathon Alignment
+- **Safety-relevant signals**: on-device audio inference for fall-like events.
+- **Actionable intervention**: structured alerts with confidence and metadata (no raw audio).
+- **Reliability**: designed for low connectivity via local processing and queued delivery.
 
 ## Start Here
 - `WORKFLOW.md` — how to run the multi-agent process
@@ -34,6 +39,21 @@ Edge-first fall detection prototype with:
 5) Install edge deps: `pip install -r edge/requirements-llm.txt`
 6) Run edge (mic): `python3 edge/edge_device.py --model edge/llm_artifacts/model.tflite`
 7) Validate UI: alerts appear, acknowledge works, refresh updates
+
+## Low-Connectivity Demo (Option C + D)
+- **Offline demo mode**: run edge with `--dry-run` to show alerts without any network dependency.
+  - Example: `python3 edge/edge_device.py --model edge/llm_artifacts/model.tflite --dry-run`
+- **Metadata-only proof**: confirm the printed payload includes only time/device/event metadata (no raw audio).
+
+## Planned Enhancements (Hackathon-Ready)
+- **Location detection**:
+  - Option 1 (static): CLI/config default per device.
+  - Option 2 (Wi‑Fi/BSSID map): map known access points to room/zone.
+- **Transport category**:
+  - Enumerate `edge`, `wifi`, `cell`, `lorawan`, `offline`.
+  - Show transport as a UI badge and filter.
+- **Queue visibility**:
+  - Surface queued alerts and last flush time in the UI.
 
 ## Default Config (edge/llm/config.py)
 

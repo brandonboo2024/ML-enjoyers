@@ -12,15 +12,17 @@
         <p>Edge alerts, acknowledgement, and escalation tracking.</p>
       </header>
       <section>
-        <div class="controls">
-          <div class="control-group">
-            <button id="refresh">Refresh Alerts</button>
-            <span id="status" class="status-text"></span>
-          </div>
-          <div class="filters" role="group" aria-label="Alert filters">
-            <button class="filter-button is-active" data-filter="all">All</button>
-            <button class="filter-button" data-filter="unacknowledged">Unacknowledged</button>
-          </div>
+          <div class="controls">
+            <div class="control-group">
+              <button id="refresh">Refresh Alerts</button>
+              <button id="ack-all" class="button-secondary">Acknowledge All</button>
+              <span id="status" class="status-text"></span>
+            </div>
+            <div class="filters" role="group" aria-label="Alert filters">
+              <button class="filter-button is-active" data-filter="all">All</button>
+              <button class="filter-button" data-filter="unacknowledged">Unacknowledged</button>
+              <button class="filter-button" data-filter="acknowledged">Acknowledged</button>
+            </div>
           <div id="summary" class="summary"></div>
         </div>
         <div id="alerts"></div>
