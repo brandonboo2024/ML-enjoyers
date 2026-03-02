@@ -9,6 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 const alerts = [];
+// In-memory rate limiter keyed by deviceId.
 const rateLimitWindowMs = Number(process.env.ALERT_RATE_WINDOW_MS ?? 60_000);
 const rateLimitMax = Number(process.env.ALERT_RATE_MAX ?? 10);
 const rateLimits = new Map();
@@ -18,6 +19,7 @@ function nowIso() {
 }
 
 function checkRateLimit(key) {
+  // Simple fixed window rate limiter.
   const now = Date.now();
   const entry = rateLimits.get(key);
 

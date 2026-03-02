@@ -1,10 +1,10 @@
-# Fall Detection Prototype — Shared Contract
+# Public Safety Prototype — Shared Contract
 
 This file is the **single source of truth** for the multi‑agent workflow.
 All agents must follow these contracts and file ownership rules.
 
 ## 1) Architecture Contract
-- Edge device (Python) runs local detection and sends alerts to backend.
+- Edge device (Python) runs local detection and sends **metadata-only** alerts to backend.
 - Backend (Node/Express) receives alerts and serves them to frontend.
 - Frontend (TypeScript/Vite) displays alerts and allows acknowledgement.
 
@@ -15,7 +15,7 @@ All agents must follow these contracts and file ownership rules.
 - For hackathon, default to (B) if feasible; (A) allowed as a fallback/benchmark.
 
 ## 2) API Contract
-Base: `http://localhost:4000`
+Base: `http://localhost:4100`
 
 ### POST /api/alerts
 **Request body (JSON)**
@@ -51,6 +51,14 @@ Base: `http://localhost:4000`
 - `transport`
 - `acknowledgedAt` (optional ISO string)
 - `acknowledgedBy` (optional string)
+
+### Location & Transport Conventions (planned)
+- `location`: static device label (default) with optional Wi‑Fi/BSSID mapping.
+- `transport`: use a constrained set: `edge`, `wifi`, `cell`, `lorawan`, `offline`.
+
+## 2a) Reliability & Privacy Constraints
+- Edge should operate without continuous connectivity (local inference + queue).
+- Alerts are metadata-only; no raw audio is transmitted.
 
 ## 3) File Ownership Rules
 - Frontend Agent: `frontend/` only

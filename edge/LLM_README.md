@@ -37,6 +37,14 @@ python -m edge.llm.train --data-dir archive.zip
 
 Artifacts are saved to `edge/llm_artifacts/`.
 
+### Model variants (lightweight)
+
+```bash
+python -m edge.llm.train --data-dir archive.zip --model-type cnn_small
+python -m edge.llm.train --data-dir archive.zip --model-type cnn_tiny
+python -m edge.llm.train --data-dir archive.zip --model-type linear
+```
+
 ## Export TFLite
 
 ```bash
@@ -59,6 +67,8 @@ python -m edge.llm.infer --model edge/llm_artifacts/model.tflite --audio path/to
 
 - The dataset loader infers labels from filenames/paths containing "fall"/"nonfall", and also supports SAFE-style suffix labels (`...-01.wav` = fall, `...-02.wav` = non-fall).
 - Adjust `edge/llm/config.py` to tweak features or thresholds.
+- Training centers each clip on its peak energy with 3-second windows by default.
+- Training mixes fall samples with random non-fall clips to add background noise, and defaults to 8 kHz sampling for lower compute.
 
 ## Edge planning docs
 
