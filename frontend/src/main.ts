@@ -15,12 +15,14 @@ type AlertItem = {
 
 const alertsContainer = document.querySelector<HTMLDivElement>("#alerts");
 const refreshButton = document.querySelector<HTMLButtonElement>("#refresh");
+const ackAllButton = document.querySelector<HTMLButtonElement>("#ack-all");
 const statusEl = document.querySelector<HTMLSpanElement>("#status");
 const filterButtons = document.querySelectorAll<HTMLButtonElement>(".filter-button");
 const summaryEl = document.querySelector<HTMLDivElement>("#summary");
 
 const apiBase = "http://localhost:4100";
-let currentFilter: "all" | "unacknowledged" = "all";
+let currentFilter: "all" | "unacknowledged" | "acknowledged" = "all";
+let lastItems: AlertItem[] = [];
 
 function setStatus(message: string) {
   if (statusEl) {
@@ -33,13 +35,15 @@ function formatTime(value?: string) {
   return new Date(value).toLocaleString();
 }
 
-function updateSummary(total: number, unacknowledged: number) {
+function updateSummary(total: number, unacknowledged: number, acknowledged: number) {
   if (!summaryEl) return;
   summaryEl.innerHTML = `
     <span class="summary-label">Total</span>
     <span class="summary-value">${total}</span>
     <span class="summary-label">Unacknowledged</span>
     <span class="summary-value">${unacknowledged}</span>
+    <span class="summary-label">Acknowledged</span>
+    <span class="summary-value">${acknowledged}</span>
   `;
 }
 
@@ -51,19 +55,31 @@ function updateFilterButtons() {
   });
 }
 
+function updateAckAllState(items: AlertItem[]) {
+  if (!ackAllButton) return;
+  const unackCount = items.filter((item) => !item.acknowledgedAt).length;
+  ackAllButton.disabled = unackCount === 0;
+}
+
 function renderAlerts(items: AlertItem[]) {
   if (!alertsContainer) return;
   const unacknowledged = items.filter((item) => !item.acknowledgedAt).length;
-  updateSummary(items.length, unacknowledged);
+  const acknowledged = items.length - unacknowledged;
+  updateSummary(items.length, unacknowledged, acknowledged);
+  updateAckAllState(items);
   const visibleItems =
     currentFilter === "unacknowledged"
       ? items.filter((item) => !item.acknowledgedAt)
+      : currentFilter === "acknowledged"
+      ? items.filter((item) => item.acknowledgedAt)
       : items;
 
   if (!visibleItems.length) {
     alertsContainer.innerHTML =
       currentFilter === "unacknowledged"
         ? "<p>No unacknowledged alerts right now.</p>"
+        : currentFilter === "acknowledged"
+        ? "<p>No acknowledged alerts yet.</p>"
         : "<p>No alerts yet.</p>";
     return;
   }
@@ -145,7 +161,8 @@ async function loadAlerts() {
     setStatus("Loading...");
     const response = await fetch(`${apiBase}/api/alerts`);
     const data = await response.json();
-    renderAlerts(data.items || []);
+    lastItems = data.items || [];
+    renderAlerts(lastItems);
     setStatus("Updated");
   } catch (err) {
     console.error(err);
@@ -161,10 +178,27 @@ filterButtons.forEach((button) => {
   button.addEventListener("click", () => {
     const filter = button.dataset.filter;
     if (!filter) return;
-    currentFilter = filter as "all" | "unacknowledged";
+    currentFilter = filter as "all" | "unacknowledged" | "acknowledged";
     updateFilterButtons();
     void loadAlerts();
   });
+});
+
+ackAllButton?.addEventListener("click", async () => {
+  const pending = lastItems.filter((item) => !item.acknowledgedAt);
+  if (!pending.length) return;
+  ackAllButton.disabled = true;
+  setStatus(`Acknowledging ${pending.length}...`);
+  await Promise.all(
+    pending.map((item) =>
+      fetch(`${apiBase}/api/ack/${item.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ by: "caregiver" }),
+      })
+    )
+  );
+  await loadAlerts();
 });
 
 updateFilterButtons();
