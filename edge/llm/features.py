@@ -5,11 +5,13 @@ from .config import LLMConfig
 
 
 def load_audio_full(path: str, cfg: LLMConfig) -> np.ndarray:
+    """Load full audio at the target sample rate."""
     y, _ = librosa.load(path, sr=cfg.sample_rate, mono=True)
     return y.astype(np.float32)
 
 
 def load_audio(path: str, cfg: LLMConfig, duration: float | None = None) -> np.ndarray:
+    """Load a fixed-duration mono clip."""
     if duration is None:
         duration = cfg.clip_seconds
     y, sr = librosa.load(path, sr=cfg.sample_rate, mono=True, duration=duration)
@@ -22,6 +24,7 @@ def load_audio(path: str, cfg: LLMConfig, duration: float | None = None) -> np.n
 
 
 def center_window(y: np.ndarray, cfg: LLMConfig) -> np.ndarray:
+    """Center a window on the peak energy region."""
     target_len = int(cfg.sample_rate * cfg.clip_seconds)
     if len(y) <= target_len:
         return np.pad(y, (0, target_len - len(y))).astype(np.float32)
@@ -43,6 +46,7 @@ def center_window(y: np.ndarray, cfg: LLMConfig) -> np.ndarray:
 
 
 def rms_normalize(y: np.ndarray, cfg: LLMConfig) -> np.ndarray:
+    """Normalize clip RMS to a target level."""
     rms = float(np.sqrt(np.mean(y ** 2)) + 1e-9)
     scale = cfg.rms_target / rms
     y = y * scale
@@ -50,6 +54,7 @@ def rms_normalize(y: np.ndarray, cfg: LLMConfig) -> np.ndarray:
 
 
 def rms_level(y: np.ndarray) -> float:
+    """Compute RMS energy for gating decisions."""
     return float(np.sqrt(np.mean(y ** 2)) + 1e-9)
 
 

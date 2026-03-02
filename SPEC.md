@@ -15,7 +15,7 @@ All agents must follow these contracts and file ownership rules.
 - For hackathon, default to (B) if feasible; (A) allowed as a fallback/benchmark.
 
 ## 2) API Contract
-Base: `http://localhost:4000`
+Base: `http://localhost:4100`
 
 ### POST /api/alerts
 **Request body (JSON)**

@@ -24,5 +24,6 @@ Keep tasks minimal; mark DOING when in progress and DONE when validated.
 
 ## Integrator
 
-- [integrator] TODO Keep SPEC.md updated
+- [integrator] TODO Align docs with current defaults (ports, edge mode, model defaults)
 - [integrator] TODO Verify compatibility and run demo
+- [integrator] TODO Decide on backend idempotency handling for edge retries

@@ -107,6 +107,7 @@ def split_dataset(items: List[LabeledFile], cfg: LLMConfig) -> Tuple[List[Labele
 
 
 def _random_window(y: np.ndarray, cfg: LLMConfig, rng: np.random.Generator) -> np.ndarray:
+    """Sample a random fixed-length window from a clip."""
     target_len = int(cfg.sample_rate * cfg.clip_seconds)
     if len(y) <= target_len:
         return np.pad(y, (0, target_len - len(y))).astype(np.float32)
@@ -115,6 +116,7 @@ def _random_window(y: np.ndarray, cfg: LLMConfig, rng: np.random.Generator) -> n
 
 
 def _mix_background(signal: np.ndarray, noise: np.ndarray, cfg: LLMConfig, rng: np.random.Generator) -> np.ndarray:
+    """Mix background noise into a signal at a target SNR."""
     snr_db = float(rng.uniform(cfg.mix_snr_db_min, cfg.mix_snr_db_max))
     signal_rms = rms_level(signal)
     noise_rms = rms_level(noise)
