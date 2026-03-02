@@ -62,6 +62,7 @@ python -m edge.llm.infer --model edge/llm_artifacts/model.tflite --audio path/to
 
 - The dataset loader infers labels from filenames/paths containing "fall"/"nonfall", and also supports SAFE-style suffix labels (`...-01.wav` = fall, `...-02.wav` = non-fall).
 - Adjust `edge/llm/config.py` to tweak features or thresholds.
+- Training now centers each clip on its peak energy and applies RMS normalization by default; you can disable these in `edge/llm/config.py`.
 
 ## Edge planning docs
 

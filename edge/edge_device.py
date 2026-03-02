@@ -19,7 +19,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from edge.llm.config import LLMConfig
-from edge.llm.features import extract_log_mel, normalize_log_mel
+from edge.llm.features import extract_log_mel, normalize_log_mel, rms_normalize, rms_level
 
 
 def _utc_now_iso() -> str:
@@ -65,7 +65,9 @@ def _run_inference(interpreter, x: np.ndarray) -> float:
     return float(output.squeeze())
 
 
-def post_alert(url: str, payload: dict, idempotency_key: str, timeout_seconds: int = 5) -> str:
+def post_alert(
+    url: str, payload: dict, idempotency_key: str, timeout_seconds: int = 5
+) -> str:
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -81,7 +83,9 @@ def post_alert(url: str, payload: dict, idempotency_key: str, timeout_seconds: i
     return body
 
 
-def _build_idempotency_key(payload: dict, event_time_epoch: float, bucket_seconds: int = 5) -> str:
+def _build_idempotency_key(
+    payload: dict, event_time_epoch: float, bucket_seconds: int = 5
+) -> str:
     bucket = int(event_time_epoch // bucket_seconds)
     key_payload = {
         "deviceId": payload.get("deviceId"),
@@ -133,7 +137,9 @@ class AlertQueue:
                     )
         except Exception:
             stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            corrupt_path = self.queue_path.with_suffix(self.queue_path.suffix + f".corrupt.{stamp}")
+            corrupt_path = self.queue_path.with_suffix(
+                self.queue_path.suffix + f".corrupt.{stamp}"
+            )
             shutil.move(self.queue_path, corrupt_path)
             return []
 
@@ -190,15 +196,22 @@ class AlertQueue:
                 continue
 
             try:
-                post_alert(endpoint, record.payload, idempotency_key=record.idempotencyKey, timeout_seconds=timeout_seconds)
+                post_alert(
+                    endpoint,
+                    record.payload,
+                    idempotency_key=record.idempotencyKey,
+                    timeout_seconds=timeout_seconds,
+                )
                 sent_count += 1
             except Exception:
                 record.attemptCount += 1
                 base_delay = 2.0
                 max_delay = 300.0
                 jitter = random.uniform(0.0, 1.0)
-                delay = min(base_delay * (2 ** record.attemptCount), max_delay) + jitter
-                record.nextRetryAt = datetime.fromtimestamp(now_epoch + delay, tz=timezone.utc).isoformat()
+                delay = min(base_delay * (2**record.attemptCount), max_delay) + jitter
+                record.nextRetryAt = datetime.fromtimestamp(
+                    now_epoch + delay, tz=timezone.utc
+                ).isoformat()
                 kept.append(record)
                 failed_count += 1
 
@@ -212,14 +225,20 @@ class AlertQueue:
 def simulate_chunk(cfg: LLMConfig, confidence_floor: float) -> tuple[np.ndarray, float]:
     confidence = random.uniform(confidence_floor, 0.98)
     # Creates a synthetic "impact" shape for dry-run fallback.
-    y = np.random.normal(0.0, 0.01, int(cfg.sample_rate * cfg.clip_seconds)).astype(np.float32)
+    y = np.random.normal(0.0, 0.01, int(cfg.sample_rate * cfg.clip_seconds)).astype(
+        np.float32
+    )
     impact_index = random.randint(int(0.4 * len(y)), int(0.7 * len(y)))
-    y[impact_index : impact_index + 200] += np.random.normal(0.2, 0.05, 200).astype(np.float32)
+    y[impact_index : impact_index + 200] += np.random.normal(0.2, 0.05, 200).astype(
+        np.float32
+    )
     y = np.clip(y, -1.0, 1.0)
     return y, confidence
 
 
-def _build_alert_payload(device_id: str, location: str, confidence: float, model_path: str) -> dict:
+def _build_alert_payload(
+    device_id: str, location: str, confidence: float, model_path: str
+) -> dict:
     return {
         "deviceId": device_id,
         "eventType": "fall_suspected",
@@ -231,7 +250,9 @@ def _build_alert_payload(device_id: str, location: str, confidence: float, model
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Edge audio fall detection loop with offline queue.")
+    parser = argparse.ArgumentParser(
+        description="Edge audio fall detection loop with offline queue."
+    )
     parser.add_argument("--endpoint", default="http://localhost:4100/api/alerts")
     parser.add_argument("--model", default="edge/llm_artifacts/model.tflite")
     parser.add_argument("--queue-path", default="edge/data/queue/alerts.jsonl")
@@ -241,15 +262,27 @@ def main() -> int:
     parser.add_argument("--threshold", type=float, default=None)
     parser.add_argument("--cooldown-seconds", type=float, default=None)
     parser.add_argument("--window-stride-seconds", type=float, default=0.5)
-    parser.add_argument("--dry-run", action="store_true", help="Do not send alerts; print detections only.")
-    parser.add_argument("--simulate", action="store_true", help="Use synthetic audio instead of microphone input.")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Do not send alerts; print detections only.",
+    )
+    parser.add_argument(
+        "--simulate",
+        action="store_true",
+        help="Use synthetic audio instead of microphone input.",
+    )
     parser.add_argument("--confidence-floor", type=float, default=0.75)
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
 
     cfg = LLMConfig()
-    trigger_threshold = cfg.trigger_threshold if args.threshold is None else args.threshold
-    cooldown_seconds = cfg.cooldown_seconds if args.cooldown_seconds is None else args.cooldown_seconds
+    trigger_threshold = (
+        cfg.trigger_threshold if args.threshold is None else args.threshold
+    )
+    cooldown_seconds = (
+        cfg.cooldown_seconds if args.cooldown_seconds is None else args.cooldown_seconds
+    )
 
     queue = AlertQueue(args.queue_path)
     interpreter = _load_tflite_interpreter(args.model)
@@ -265,7 +298,9 @@ def main() -> int:
         try:
             import sounddevice as sd
         except ImportError as exc:
-            raise SystemExit("sounddevice is required for microphone mode. Install it or run with --simulate.") from exc
+            raise SystemExit(
+                "sounddevice is required for microphone mode. Install it or run with --simulate."
+            ) from exc
 
         stream = sd.InputStream(
             samplerate=cfg.sample_rate,
@@ -314,6 +349,21 @@ def main() -> int:
             if args.simulate:
                 score = simulated_confidence
             else:
+                if cfg.silence_gate:
+                    level = rms_level(sample_buffer)
+                    if level < cfg.silence_rms_threshold:
+                        score = 0.0
+                        score_window.append(score)
+                        smooth_score = float(np.mean(score_window))
+                        now_epoch = time.time()
+                        cooldown_ok = (now_epoch - last_trigger_epoch) >= cooldown_seconds
+                        print(f"score={score:.4f} smooth={smooth_score:.4f} (silence gate)")
+                        time.sleep(args.window_stride_seconds)
+                        if args.once:
+                            break
+                        continue
+                if cfg.rms_normalize:
+                    sample_buffer = rms_normalize(sample_buffer, cfg)
                 log_mel = extract_log_mel(sample_buffer, cfg)
                 log_mel = normalize_log_mel(log_mel)
                 x = log_mel[np.newaxis, ..., np.newaxis].astype(np.float32)
@@ -327,14 +377,18 @@ def main() -> int:
             print(f"score={score:.4f} smooth={smooth_score:.4f}")
 
             if smooth_score >= trigger_threshold and cooldown_ok:
-                payload = _build_alert_payload(args.device_id, args.location, smooth_score, args.model)
+                payload = _build_alert_payload(
+                    args.device_id, args.location, smooth_score, args.model
+                )
                 idempotency_key = _build_idempotency_key(payload, now_epoch)
 
                 if args.dry_run:
                     print("Dry-run detection:", json.dumps(payload))
                 else:
                     try:
-                        result = post_alert(args.endpoint, payload, idempotency_key=idempotency_key)
+                        result = post_alert(
+                            args.endpoint, payload, idempotency_key=idempotency_key
+                        )
                         print("Alert sent:", result)
                     except Exception as exc:
                         queue.enqueue(idempotency_key, payload)
