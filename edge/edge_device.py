@@ -31,6 +31,7 @@ def _parse_iso_to_epoch(value: str) -> float:
 
 
 def _load_tflite_interpreter(model_path: str):
+    """Load a TFLite interpreter with TensorFlow fallback for dev environments."""
     try:
         from tflite_runtime.interpreter import Interpreter
     except ImportError:
@@ -44,6 +45,7 @@ def _load_tflite_interpreter(model_path: str):
 
 
 def _run_inference(interpreter, x: np.ndarray) -> float:
+    """Run a single inference pass and return the scalar fall score."""
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
     input_index = input_details[0]["index"]
@@ -68,6 +70,7 @@ def _run_inference(interpreter, x: np.ndarray) -> float:
 def post_alert(
     url: str, payload: dict, idempotency_key: str, timeout_seconds: int = 5
 ) -> str:
+    """POST an alert with an idempotency key for de-duplication on retries."""
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -86,6 +89,7 @@ def post_alert(
 def _build_idempotency_key(
     payload: dict, event_time_epoch: float, bucket_seconds: int = 5
 ) -> str:
+    """Generate a stable hash for near-duplicate events within a time bucket."""
     bucket = int(event_time_epoch // bucket_seconds)
     key_payload = {
         "deviceId": payload.get("deviceId"),
@@ -115,6 +119,7 @@ class AlertQueue:
         self.records = self._load_records()
 
     def _load_records(self) -> list[QueueRecord]:
+        """Load persisted queue records; quarantine corrupt files."""
         if not self.queue_path.exists():
             return []
 
@@ -146,6 +151,7 @@ class AlertQueue:
         return records
 
     def _persist(self) -> None:
+        """Atomically persist queued alerts to disk."""
         tmp_path = self.queue_path.with_suffix(self.queue_path.suffix + ".tmp")
         with tmp_path.open("w", encoding="utf-8") as handle:
             for item in self.records:
@@ -164,6 +170,7 @@ class AlertQueue:
         os.replace(tmp_path, self.queue_path)
 
     def enqueue(self, idempotency_key: str, payload: dict) -> None:
+        """Add a unique alert to the retry queue."""
         if any(item.idempotencyKey == idempotency_key for item in self.records):
             return
 
@@ -184,6 +191,7 @@ class AlertQueue:
         self._persist()
 
     def flush_due(self, endpoint: str, timeout_seconds: int = 5) -> tuple[int, int]:
+        """Send any queued alerts that are due; apply exponential backoff on failure."""
         now_epoch = time.time()
         sent_count = 0
         failed_count = 0
@@ -223,6 +231,7 @@ class AlertQueue:
 
 
 def simulate_chunk(cfg: LLMConfig, confidence_floor: float) -> tuple[np.ndarray, float]:
+    """Generate synthetic audio and a high confidence score for dry-run testing."""
     confidence = random.uniform(confidence_floor, 0.98)
     # Creates a synthetic "impact" shape for dry-run fallback.
     y = np.random.normal(0.0, 0.01, int(cfg.sample_rate * cfg.clip_seconds)).astype(

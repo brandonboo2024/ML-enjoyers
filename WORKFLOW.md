@@ -13,7 +13,7 @@ This guide keeps the repo tidy and clarifies how to run role-based agents.
 4) Integrator reconciles changes, updates `SPEC.md` if needed, and keeps `TASKS.md` current.
 
 ## Running the Prototype (for demos)
-- Backend: `cd backend && npm install && npm run dev` (http://localhost:4000)
+- Backend: `cd backend && npm install && npm run dev` (http://localhost:4100)
 - Frontend: `cd frontend && npm install && npm run dev` (http://localhost:5173)
 - Edge simulator: `python3 edge/edge_device.py --once` (or `--interval 20`)
 

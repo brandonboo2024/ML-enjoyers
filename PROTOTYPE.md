@@ -1,7 +1,7 @@
 # Prototype: Fall Detection Hackathon Stack
 
 This prototype implements a minimal end‑to‑end flow aligned with `fall_detection_plan.md`:
-- **Edge device** (Python) simulates fall detections and posts alerts.
+- **Edge device** (Python) runs mic inference (with optional simulation) and posts alerts.
 - **Backend** (JavaScript/Node) receives alerts and stores them in memory.
 - **Frontend** (TypeScript/Vite) displays alerts and supports acknowledgements.
 
@@ -15,7 +15,7 @@ npm install
 npm run dev
 ```
 
-Backend runs at: `http://localhost:4000`
+Backend runs at: `http://localhost:4100`
 
 ### Endpoints
 - `GET /health`
@@ -38,17 +38,21 @@ Frontend runs at: `http://localhost:5173`
 ## 3) Edge Device (Python)
 Location: `edge/`
 
-### Run once
+### Run once (mic)
 ```
-python3 edge/edge_device.py --once
+python3 edge/edge_device.py --model edge/llm_artifacts/model.tflite --once
 ```
 
-### Run continuous (every 20s)
+### Run continuous (mic)
 ```
-python3 edge/edge_device.py --interval 20
+python3 edge/edge_device.py --model edge/llm_artifacts/model.tflite
+```
+
+### Run simulated (no mic)
+```
+python3 edge/edge_device.py --simulate --once --model edge/llm_artifacts/model.tflite
 ```
 
 ## Notes
-- This is a **prototype** for hackathon demo: alerts are simulated.
-- Replace `edge_device.py` logic with real audio inference when ready.
+- This is a **prototype** for hackathon demo.
 - Backend uses in‑memory storage (no database) for speed.

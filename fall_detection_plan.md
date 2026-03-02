@@ -1,5 +1,7 @@
 # Fall‑Detection for Elderly at Home — Feasibility‑First Plan
 
+Note: This document is a long‑term feasibility reference and is broader than the current hackathon prototype.
+
 ## 0) Executive Summary
 An edge‑first fall‑detection system that uses **audio** (and optionally minimal extra sensors) to detect fall‑like events locally, then sends **low‑bandwidth alerts** via **LoRaWAN** with fallback to **SMS/Wi‑Fi**. The system prioritizes **privacy, reliability, and on‑device inference** to work in low‑connectivity environments.
 
