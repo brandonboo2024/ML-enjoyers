@@ -17,10 +17,22 @@ def main() -> int:
     parser.add_argument("--out", default="edge/llm_artifacts/model.tflite", help="Output .tflite path")
     parser.add_argument("--int8", action="store_true", help="Enable int8 quantization")
     parser.add_argument("--calib-samples", help="Path to .npy of sample inputs for calibration")
+    parser.add_argument(
+        "--select-tf-ops",
+        action="store_true",
+        help="Enable Select TF ops (needed for some RNN/GRU models).",
+    )
     args = parser.parse_args()
 
     model = tf.keras.models.load_model(args.model)
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
+
+    if args.select_tf_ops:
+        converter.target_spec.supported_ops = [
+            tf.lite.OpsSet.TFLITE_BUILTINS,
+            tf.lite.OpsSet.SELECT_TF_OPS,
+        ]
+        converter._experimental_lower_tensor_list_ops = False
 
     if args.int8:
         if not args.calib_samples:

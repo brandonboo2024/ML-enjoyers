@@ -8,8 +8,10 @@ from .config import LLMConfig
 from .features import load_audio, extract_log_mel, normalize_log_mel, rms_normalize, rms_level
 
 
-def _load_tflite_interpreter(model_path: str):
+def _load_tflite_interpreter(model_path: str, prefer_tf: bool = False):
     try:
+        if prefer_tf:
+            raise ImportError("Prefer TensorFlow interpreter")
         from tflite_runtime.interpreter import Interpreter
     except ImportError:
         import tensorflow as tf

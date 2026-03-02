@@ -26,23 +26,24 @@ Edge-first fall detection prototype with:
 - Python 3.10+
 - pip
 
-## Run Prototype
+## Run Prototype (Quick Start)
 - Backend: `cd backend && npm install && npm run dev` (http://localhost:4100)
 - Frontend: `cd frontend && npm install && npm run dev` (http://localhost:5173)
-- Edge detector: `python3 edge/edge_device.py --model edge/llm_artifacts/model.tflite`
+- Edge (cnn_small): `python3 edge/edge_device.py --model edge/llm_artifacts/cnn_small/model.tflite --model-mode mel_cnn`
 
 ## Demo Runbook
-1) Install backend deps: `cd backend && npm install`
-2) Start backend: `cd backend && npm run dev` (keep running)
-3) Install frontend deps: `cd frontend && npm install`
-4) Start frontend: `cd frontend && npm run dev` (open http://localhost:5173)
-5) Install edge deps: `pip install -r edge/requirements-llm.txt`
-6) Run edge (mic): `python3 edge/edge_device.py --model edge/llm_artifacts/model.tflite`
-7) Validate UI: alerts appear, acknowledge works, refresh updates
+1) Backend: `cd backend && npm install && npm run dev`
+2) Frontend: `cd frontend && npm install && npm run dev`
+3) Edge deps: `pip install -r edge/requirements-llm.txt`
+4) Train + export (cnn_small):
+   - `python -m edge.llm.train --data-dir archive.zip --model-type cnn_small --out-dir edge/llm_artifacts/cnn_small`
+   - `python -m edge.llm.export_tflite --model edge/llm_artifacts/cnn_small/model.keras --out edge/llm_artifacts/cnn_small/model.tflite`
+5) Run edge (mic): `python3 edge/edge_device.py --model edge/llm_artifacts/cnn_small/model.tflite --model-mode mel_cnn`
+6) Validate UI: alerts appear, acknowledge works, refresh updates
 
 ## Low-Connectivity Demo (Option C + D)
 - **Offline demo mode**: run edge with `--dry-run` to show alerts without any network dependency.
-  - Example: `python3 edge/edge_device.py --model edge/llm_artifacts/model.tflite --dry-run`
+  - Example: `python3 edge/edge_device.py --model edge/llm_artifacts/cnn_small/model.tflite --model-mode mel_cnn --dry-run`
 - **Metadata-only proof**: confirm the printed payload includes only time/device/event metadata (no raw audio).
 
 ## Planned Enhancements (Hackathon-Ready)
@@ -68,8 +69,20 @@ Edge-first fall detection prototype with:
 | `center_on_peak` | true | Center window on peak energy |
 | `rms_normalize` | false | Disabled for live mic stability |
 | `silence_gate` | true | Gate low-energy windows |
-| `silence_rms_threshold` | 0.05 | Tune per environment |
-| `mix_noise_prob` | 0.5 | Noise mixing for falls in training |
+| `silence_rms_threshold` | 0.03 | Tune per environment |
+| `mix_noise_prob` | 0.7 | Noise mixing for falls in training |
+| `post_impact_quiet_seconds` | 1.5 | Require quiet after impact |
+| `post_impact_rms_threshold` | 0.015 | Quiet threshold for post-impact rule |
+| `post_impact_max_wait_seconds` | 3.0 | Drop pending triggers after this window |
+| `calibration_silence_multiplier` | 2.0 | Multiplier for calibrated silence gate |
+| `calibration_post_impact_multiplier` | 1.6 | Multiplier for calibrated post-impact gate |
+| `trigger_threshold` | 0.75 | Default alert threshold |
+
+Optional calibration (live mic):
+- `python3 edge/edge_device.py --model edge/llm_artifacts/cnn_small/model.tflite --model-mode mel_cnn --calibrate-seconds 20`
+
+## Model Variants (optional)
+- `edge/LLM_README.md` has full training + export instructions, including temporal baselines.
 
 ## License
 See `LICENSE`.

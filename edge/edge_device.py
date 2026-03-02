@@ -1,6 +1,7 @@
 import argparse
 import hashlib
 import json
+import math
 import os
 import random
 import shutil
@@ -19,7 +20,14 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from edge.llm.config import LLMConfig
-from edge.llm.features import extract_log_mel, normalize_log_mel, rms_normalize, rms_level
+from edge.llm.features import (
+    extract_log_mel,
+    normalize_log_mel,
+    rms_normalize,
+    rms_level,
+)
+from edge.llm.temporal_features import extract_temporal_features
+from edge.llm.temporal_models import rule_score, score_markov
 
 
 def _utc_now_iso() -> str:
@@ -264,12 +272,22 @@ def main() -> int:
     )
     parser.add_argument("--endpoint", default="http://localhost:4100/api/alerts")
     parser.add_argument("--model", default="edge/llm_artifacts/model.tflite")
+    parser.add_argument(
+        "--model-mode",
+        default="mel_cnn",
+        choices=["mel_cnn", "temporal_gru", "temporal_markov", "temporal_rule"],
+        help="Inference pipeline to use.",
+    )
     parser.add_argument("--queue-path", default="edge/data/queue/alerts.jsonl")
     parser.add_argument("--device-id", default="edge-audio-001")
     parser.add_argument("--location", default="living-room")
     parser.add_argument("--input-device", default=None)
     parser.add_argument("--threshold", type=float, default=None)
     parser.add_argument("--cooldown-seconds", type=float, default=None)
+    parser.add_argument("--calibrate-seconds", type=float, default=0.0)
+    parser.add_argument("--post-impact-quiet-seconds", type=float, default=None)
+    parser.add_argument("--post-impact-rms-threshold", type=float, default=None)
+    parser.add_argument("--post-impact-max-wait-seconds", type=float, default=None)
     parser.add_argument("--window-stride-seconds", type=float, default=0.5)
     parser.add_argument(
         "--dry-run",
@@ -292,16 +310,58 @@ def main() -> int:
     cooldown_seconds = (
         cfg.cooldown_seconds if args.cooldown_seconds is None else args.cooldown_seconds
     )
+    post_impact_quiet_seconds = (
+        cfg.post_impact_quiet_seconds
+        if args.post_impact_quiet_seconds is None
+        else args.post_impact_quiet_seconds
+    )
+    post_impact_rms_threshold = (
+        cfg.post_impact_rms_threshold
+        if args.post_impact_rms_threshold is None
+        else args.post_impact_rms_threshold
+    )
+    post_impact_max_wait_seconds = (
+        cfg.post_impact_max_wait_seconds
+        if args.post_impact_max_wait_seconds is None
+        else args.post_impact_max_wait_seconds
+    )
 
     queue = AlertQueue(args.queue_path)
-    interpreter = _load_tflite_interpreter(args.model)
+    interpreter = None
+    markov_model = None
+    temporal_norm = None
+    if args.model_mode == "temporal_markov":
+        markov_path = Path(args.model)
+        if markov_path.suffix.lower() != ".json":
+            raise SystemExit("temporal_markov expects a .json model file.")
+        markov_model = json.loads(markov_path.read_text())
+    elif args.model_mode == "temporal_rule":
+        pass
+    else:
+        interpreter = _load_tflite_interpreter(args.model)
+        if args.model_mode == "temporal_gru":
+            norm_path = Path(args.model).with_name("temporal_norm.npy")
+            if norm_path.exists():
+                temporal_norm = np.load(norm_path, allow_pickle=True).item()
 
     target_samples = int(cfg.sample_rate * cfg.clip_seconds)
     stride_samples = max(1, int(cfg.sample_rate * args.window_stride_seconds))
+    quiet_window_count = (
+        0
+        if post_impact_quiet_seconds <= 0
+        else max(1, math.ceil(post_impact_quiet_seconds / args.window_stride_seconds))
+    )
+    max_wait_windows = max(
+        1, math.ceil(post_impact_max_wait_seconds / args.window_stride_seconds)
+    )
     sample_buffer = np.zeros(target_samples, dtype=np.float32)
     filled_samples = 0
     score_window: deque[float] = deque(maxlen=cfg.smooth_window)
     last_trigger_epoch = 0.0
+    pending_trigger = False
+    pending_score = 0.0
+    quiet_count = 0
+    pending_windows = 0
 
     if not args.simulate:
         try:
@@ -322,10 +382,47 @@ def main() -> int:
     else:
         stream = None
 
+    if args.calibrate_seconds > 0 and not args.simulate:
+        rms_samples: list[float] = []
+        samples_needed = int(args.calibrate_seconds / args.window_stride_seconds)
+        for _ in range(max(1, samples_needed)):
+            chunk, _ = stream.read(stride_samples)
+            chunk = np.asarray(chunk, dtype=np.float32).reshape(-1)
+            rms_samples.append(rms_level(chunk))
+        median_rms = float(np.median(rms_samples)) if rms_samples else 0.0
+        cfg.silence_rms_threshold = max(
+            median_rms * cfg.calibration_silence_multiplier, 1e-4
+        )
+        post_impact_rms_threshold = max(
+            median_rms * cfg.calibration_post_impact_multiplier, 1e-4
+        )
+        print(
+            "Calibration complete | "
+            f"silence_rms_threshold={cfg.silence_rms_threshold:.4f} | "
+            f"post_impact_rms_threshold={post_impact_rms_threshold:.4f}"
+        )
+
     print(
         f"Edge detector started | endpoint={args.endpoint} | threshold={trigger_threshold:.2f} | "
-        f"cooldown={cooldown_seconds:.1f}s | simulate={args.simulate}"
+        f"cooldown={cooldown_seconds:.1f}s | simulate={args.simulate} | mode={args.model_mode}"
     )
+
+    def emit_alert(confidence: float) -> None:
+        payload = _build_alert_payload(
+            args.device_id, args.location, confidence, args.model
+        )
+        idempotency_key = _build_idempotency_key(payload, time.time())
+
+        if args.dry_run:
+            print("Dry-run detection:", json.dumps(payload))
+            return
+
+        try:
+            result = post_alert(args.endpoint, payload, idempotency_key=idempotency_key)
+            print("Alert sent:", result)
+        except Exception as exc:
+            queue.enqueue(idempotency_key, payload)
+            print("Send failed; queued locally:", exc)
 
     try:
         while True:
@@ -355,58 +452,91 @@ def main() -> int:
             if filled_samples < target_samples:
                 continue
 
+            current_rms = rms_level(sample_buffer)
+            skipped_inference = False
+
             if args.simulate:
                 score = simulated_confidence
             else:
-                if cfg.silence_gate:
-                    level = rms_level(sample_buffer)
-                    if level < cfg.silence_rms_threshold:
-                        score = 0.0
-                        score_window.append(score)
-                        smooth_score = float(np.mean(score_window))
-                        now_epoch = time.time()
-                        cooldown_ok = (now_epoch - last_trigger_epoch) >= cooldown_seconds
-                        print(f"score={score:.4f} smooth={smooth_score:.4f} (silence gate)")
-                        time.sleep(args.window_stride_seconds)
-                        if args.once:
-                            break
-                        continue
-                if cfg.rms_normalize:
-                    sample_buffer = rms_normalize(sample_buffer, cfg)
-                log_mel = extract_log_mel(sample_buffer, cfg)
-                log_mel = normalize_log_mel(log_mel)
-                x = log_mel[np.newaxis, ..., np.newaxis].astype(np.float32)
-                score = _run_inference(interpreter, x)
+                if cfg.silence_gate and current_rms < cfg.silence_rms_threshold:
+                    score = 0.0
+                    skipped_inference = True
+                else:
+                    if args.model_mode == "mel_cnn":
+                        if cfg.rms_normalize:
+                            sample_buffer = rms_normalize(sample_buffer, cfg)
+                        log_mel = extract_log_mel(sample_buffer, cfg)
+                        log_mel = normalize_log_mel(log_mel)
+                        x = log_mel[np.newaxis, ..., np.newaxis].astype(np.float32)
+                        score = _run_inference(interpreter, x)
+                    elif args.model_mode == "temporal_gru":
+                        if cfg.rms_normalize:
+                            sample_buffer = rms_normalize(sample_buffer, cfg)
+                        features = extract_temporal_features(sample_buffer, cfg)
+                        if temporal_norm:
+                            mean = temporal_norm["mean"]
+                            std = temporal_norm["std"]
+                            features = (features - mean) / std
+                        x = features[np.newaxis, ...].astype(np.float32)
+                        score = _run_inference(interpreter, x)
+                    elif args.model_mode == "temporal_markov":
+                        features = extract_temporal_features(sample_buffer, cfg)
+                        score = score_markov(markov_model, features)
+                    else:
+                        features = extract_temporal_features(sample_buffer, cfg)
+                        score = rule_score(
+                            features,
+                            quiet_threshold=post_impact_rms_threshold,
+                            quiet_seconds=post_impact_quiet_seconds,
+                            stride_seconds=cfg.hop_length / cfg.sample_rate,
+                        )
 
             score_window.append(score)
             smooth_score = float(np.mean(score_window))
             now_epoch = time.time()
             cooldown_ok = (now_epoch - last_trigger_epoch) >= cooldown_seconds
 
-            print(f"score={score:.4f} smooth={smooth_score:.4f}")
+            if skipped_inference:
+                print(f"score={score:.4f} smooth={smooth_score:.4f} (silence gate)")
+            else:
+                print(f"score={score:.4f} smooth={smooth_score:.4f}")
 
-            if smooth_score >= trigger_threshold and cooldown_ok:
-                payload = _build_alert_payload(
-                    args.device_id, args.location, smooth_score, args.model
-                )
-                idempotency_key = _build_idempotency_key(payload, now_epoch)
-
-                if args.dry_run:
-                    print("Dry-run detection:", json.dumps(payload))
+            if pending_trigger:
+                pending_windows += 1
+                if current_rms < post_impact_rms_threshold:
+                    quiet_count += 1
                 else:
-                    try:
-                        result = post_alert(
-                            args.endpoint, payload, idempotency_key=idempotency_key
-                        )
-                        print("Alert sent:", result)
-                    except Exception as exc:
-                        queue.enqueue(idempotency_key, payload)
-                        print("Send failed; queued locally:", exc)
+                    quiet_count = 0
+                pending_score = max(pending_score, smooth_score)
 
-                last_trigger_epoch = now_epoch
+                if quiet_window_count == 0 or quiet_count >= quiet_window_count:
+                    emit_alert(pending_score)
+                    last_trigger_epoch = now_epoch
+                    pending_trigger = False
+                    quiet_count = 0
+                    pending_windows = 0
+                    if args.once:
+                        break
+                elif pending_windows >= max_wait_windows:
+                    pending_trigger = False
+                    quiet_count = 0
+                    pending_windows = 0
 
-                if args.once:
-                    break
+            if (
+                not pending_trigger
+                and smooth_score >= trigger_threshold
+                and cooldown_ok
+            ):
+                if quiet_window_count == 0:
+                    emit_alert(smooth_score)
+                    last_trigger_epoch = now_epoch
+                    if args.once:
+                        break
+                else:
+                    pending_trigger = True
+                    pending_score = smooth_score
+                    quiet_count = 0
+                    pending_windows = 0
 
             if args.simulate:
                 time.sleep(args.window_stride_seconds)
