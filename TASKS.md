@@ -26,6 +26,9 @@ Keep tasks minimal; mark DOING when in progress and DONE when validated.
 - [edge] DONE Draft training/inference plan outline (no code): how to train locally and how to export to TFLite or call API
 - [edge] TODO Document low-connectivity demo flow (dry-run + metadata-only)
 - [edge] TODO Add static location config and optional Wi‑Fi/BSSID mapping
+- [edge] DONE Add post-impact quiet rule and mic calibration
+- [edge] DONE Add lightweight linear model option
+- [edge] DONE Add temporal GRU, Markov (HMM-style), and rule-based baselines
 
 ## Integrator
 

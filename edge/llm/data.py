@@ -19,6 +19,7 @@ from .features import (
     apply_gain,
     add_noise,
 )
+from .temporal_features import extract_temporal_features
 
 
 AUDIO_EXTS = {".wav", ".flac", ".mp3", ".ogg"}
@@ -162,6 +163,49 @@ def build_dataset(items: List[LabeledFile], cfg: LLMConfig, augment: bool) -> Tu
     labels: List[int] = []
     for item in items:
         feat, label = _featurize_item(item, cfg, rng, augment, non_fall_items)
+        features.append(feat)
+        labels.append(label)
+    x = np.stack(features, axis=0)
+    y = np.array(labels, dtype=np.int32)
+    return x, y
+
+
+def _featurize_temporal_item(
+    item: LabeledFile,
+    cfg: LLMConfig,
+    rng: np.random.Generator | None,
+    augment: bool,
+    non_fall_items: List[LabeledFile] | None,
+) -> Tuple[np.ndarray, int]:
+    if cfg.center_on_peak:
+        y_full = load_audio_full(item.path, cfg)
+        y = center_window(y_full, cfg)
+    else:
+        y = load_audio(item.path, cfg)
+    if augment and rng is not None and item.label == 1 and non_fall_items and rng.random() < cfg.mix_noise_prob:
+        noise_item = non_fall_items[int(rng.integers(0, len(non_fall_items)))]
+        noise_full = load_audio_full(noise_item.path, cfg)
+        noise = _random_window(noise_full, cfg, rng)
+        y = _mix_background(y, noise, cfg, rng)
+    if cfg.rms_normalize:
+        y = rms_normalize(y, cfg)
+    if augment and rng is not None:
+        y = apply_gain(y, cfg, rng)
+        if rng.random() < cfg.add_noise_prob:
+            y = add_noise(y, cfg, rng)
+    features = extract_temporal_features(y, cfg)
+    return features, item.label
+
+
+def build_temporal_dataset(
+    items: List[LabeledFile], cfg: LLMConfig, augment: bool
+) -> Tuple[np.ndarray, np.ndarray]:
+    rng = np.random.default_rng(cfg.seed) if augment else None
+    non_fall_items = [item for item in items if item.label == 0] if augment else None
+    features: List[np.ndarray] = []
+    labels: List[int] = []
+    for item in items:
+        feat, label = _featurize_temporal_item(item, cfg, rng, augment, non_fall_items)
         features.append(feat)
         labels.append(label)
     x = np.stack(features, axis=0)

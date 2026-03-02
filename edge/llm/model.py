@@ -42,6 +42,14 @@ def _linear_head(input_shape: tuple[int, int, int]) -> tf.keras.Model:
     return _compile(tf.keras.Model(inputs=inputs, outputs=outputs))
 
 
+def _gru_tiny(input_shape: tuple[int, int]) -> tf.keras.Model:
+    inputs = tf.keras.Input(shape=input_shape)
+    x = tf.keras.layers.GRU(16, unroll=True, reset_after=False)(inputs)
+    x = tf.keras.layers.Dense(16, activation="relu")(x)
+    outputs = tf.keras.layers.Dense(1, activation="sigmoid")(x)
+    return _compile(tf.keras.Model(inputs=inputs, outputs=outputs))
+
+
 def build_model(input_shape: tuple[int, int, int], model_type: str = "cnn_small") -> tf.keras.Model:
     if model_type == "cnn_small":
         return _cnn_small(input_shape)
@@ -49,4 +57,6 @@ def build_model(input_shape: tuple[int, int, int], model_type: str = "cnn_small"
         return _cnn_tiny(input_shape)
     if model_type == "linear":
         return _linear_head(input_shape)
+    if model_type == "temporal_gru":
+        return _gru_tiny(input_shape[:2])
     raise ValueError(f"Unknown model_type: {model_type}")

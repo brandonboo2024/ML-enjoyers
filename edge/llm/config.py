@@ -14,8 +14,13 @@ class LLMConfig:
     center_on_peak: bool = True
     rms_normalize: bool = False
     rms_target: float = 0.1
-    silence_gate: bool = True
-    silence_rms_threshold: float = 0.05
+    silence_gate: bool = False
+    silence_rms_threshold: float = 0.03
+    post_impact_quiet_seconds: float = 1.5
+    post_impact_rms_threshold: float = 0.01
+    post_impact_max_wait_seconds: float = 3.0
+    calibration_silence_multiplier: float = 2.0
+    calibration_post_impact_multiplier: float = 1.6
 
     # Training params
     batch_size: int = 32
@@ -36,7 +41,7 @@ class LLMConfig:
 
     # Inference params
     smooth_window: int = 5
-    trigger_threshold: float = 0.6
+    trigger_threshold: float = 0.60
     cooldown_seconds: float = 15.0
 
     # Paths
