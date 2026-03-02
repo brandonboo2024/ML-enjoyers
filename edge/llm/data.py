@@ -13,6 +13,7 @@ from .features import (
     load_audio_full,
     center_window,
     rms_normalize,
+    rms_level,
     extract_log_mel,
     normalize_log_mel,
     apply_gain,
@@ -105,12 +106,40 @@ def split_dataset(items: List[LabeledFile], cfg: LLMConfig) -> Tuple[List[Labele
     return train_items, val_items, test_items
 
 
-def _featurize_item(item: LabeledFile, cfg: LLMConfig, rng: np.random.Generator | None, augment: bool) -> Tuple[np.ndarray, int]:
+def _random_window(y: np.ndarray, cfg: LLMConfig, rng: np.random.Generator) -> np.ndarray:
+    target_len = int(cfg.sample_rate * cfg.clip_seconds)
+    if len(y) <= target_len:
+        return np.pad(y, (0, target_len - len(y))).astype(np.float32)
+    start = int(rng.integers(0, len(y) - target_len + 1))
+    return y[start:start + target_len].astype(np.float32)
+
+
+def _mix_background(signal: np.ndarray, noise: np.ndarray, cfg: LLMConfig, rng: np.random.Generator) -> np.ndarray:
+    snr_db = float(rng.uniform(cfg.mix_snr_db_min, cfg.mix_snr_db_max))
+    signal_rms = rms_level(signal)
+    noise_rms = rms_level(noise)
+    scale = signal_rms / (10 ** (snr_db / 20) * noise_rms)
+    mixed = signal + noise * scale
+    return np.clip(mixed, -1.0, 1.0).astype(np.float32)
+
+
+def _featurize_item(
+    item: LabeledFile,
+    cfg: LLMConfig,
+    rng: np.random.Generator | None,
+    augment: bool,
+    non_fall_items: List[LabeledFile] | None,
+) -> Tuple[np.ndarray, int]:
     if cfg.center_on_peak:
         y_full = load_audio_full(item.path, cfg)
         y = center_window(y_full, cfg)
     else:
         y = load_audio(item.path, cfg)
+    if augment and rng is not None and item.label == 1 and non_fall_items and rng.random() < cfg.mix_noise_prob:
+        noise_item = non_fall_items[int(rng.integers(0, len(non_fall_items)))]
+        noise_full = load_audio_full(noise_item.path, cfg)
+        noise = _random_window(noise_full, cfg, rng)
+        y = _mix_background(y, noise, cfg, rng)
     if cfg.rms_normalize:
         y = rms_normalize(y, cfg)
     if augment and rng is not None:
@@ -126,10 +155,11 @@ def _featurize_item(item: LabeledFile, cfg: LLMConfig, rng: np.random.Generator 
 
 def build_dataset(items: List[LabeledFile], cfg: LLMConfig, augment: bool) -> Tuple[np.ndarray, np.ndarray]:
     rng = np.random.default_rng(cfg.seed) if augment else None
+    non_fall_items = [item for item in items if item.label == 0] if augment else None
     features: List[np.ndarray] = []
     labels: List[int] = []
     for item in items:
-        feat, label = _featurize_item(item, cfg, rng, augment)
+        feat, label = _featurize_item(item, cfg, rng, augment, non_fall_items)
         features.append(feat)
         labels.append(label)
     x = np.stack(features, axis=0)
