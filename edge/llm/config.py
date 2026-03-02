@@ -4,13 +4,13 @@ from dataclasses import dataclass
 @dataclass
 class LLMConfig:
     # Audio + feature params
-    sample_rate: int = 16000
+    sample_rate: int = 8000
     clip_seconds: float = 2.0
-    n_fft: int = 400  # 25ms
-    hop_length: int = 160  # 10ms
+    n_fft: int = 200  # 25ms @ 8kHz
+    hop_length: int = 80  # 10ms @ 8kHz
     n_mels: int = 64
     fmin: int = 0
-    fmax: int = 8000
+    fmax: int = 4000
     center_on_peak: bool = True
     rms_normalize: bool = False
     rms_target: float = 0.1
@@ -28,6 +28,9 @@ class LLMConfig:
     add_noise_prob: float = 0.3
     noise_snr_db_min: float = 0.0
     noise_snr_db_max: float = 20.0
+    mix_noise_prob: float = 0.7
+    mix_snr_db_min: float = 0.0
+    mix_snr_db_max: float = 15.0
     gain_db_min: float = -6.0
     gain_db_max: float = 6.0
 
